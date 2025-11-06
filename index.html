@@ -11,7 +11,7 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     crossorigin=""
   />
-  
+
   <style>
     body {
       margin: 0;
@@ -25,11 +25,12 @@
 </head>
 <body>
   <div id="map"></div>
-
+<!-- 🔹 Import library utama Leaflet.js -->
   <script 
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     crossorigin="">
   </script>
+
   <script>
     var map = L.map('map').setView([-6.2, 106.816], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
