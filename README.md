@@ -5,10 +5,8 @@ Aplikasi peta interaktif menggunakan Leaflet.js dengan backend Node.js dan Mongo
 ## 📋 Fitur
 
 - 🗺️ Peta interaktif Jakarta
-- 📍 Tambah marker dengan klik pada peta
-- 💾 Simpan lokasi ke MongoDB Atlas
-- ✏️ Edit dan hapus lokasi
-- 🔄 Real-time sinkronisasi data
+
+
 
 ## 🚀 Cara Menjalankan
 
@@ -50,10 +48,6 @@ leaflet-map1/
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
 | GET | `/api/locations` | Ambil semua lokasi |
-| GET | `/api/locations/:id` | Ambil lokasi berdasarkan ID |
-| POST | `/api/locations` | Tambah lokasi baru |
-| PUT | `/api/locations/:id` | Update lokasi |
-| DELETE | `/api/locations/:id` | Hapus lokasi |
 
 ## 📊 Schema MongoDB
 
@@ -75,7 +69,7 @@ leaflet-map1/
 1. **Tambah Lokasi**: Klik di mana saja pada peta
 2. **Isi Form**: Masukkan nama dan deskripsi lokasi
 3. **Simpan**: Data akan tersimpan di MongoDB
-4. **Hapus**: Klik tombol "Hapus" pada popup marker
+
 
 ## 🔧 Teknologi
 
