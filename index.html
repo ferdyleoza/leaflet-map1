@@ -80,75 +80,174 @@
 
     // Array untuk menyimpan marker
     var markers = [];
+      var isLoaded = false;
+
+      // Fungsi untuk menampilkan loading indicator
+      function showLoading(show = true) {
+        let loadingEl = document.getElementById('loading-indicator');
+        if (!loadingEl) {
+          loadingEl = document.createElement('div');
+          loadingEl.id = 'loading-indicator';
+          loadingEl.className = 'loading';
+          loadingEl.innerHTML = '⏳ Loading...';
+          document.body.appendChild(loadingEl);
+        }
+        loadingEl.style.display = show ? 'block' : 'none';
+      }
 
     // Fungsi untuk load data lokasi dari backend
     async function loadLocations() {
+      console.log('📍 Memuat lokasi dari database...');
+      showLoading(true);
+      
       try {
         const response = await fetch('/api/locations');
         const result = await response.json();
         
+        console.log('📊 Response dari server:', result);
+        
         if (result.success) {
-          // Hapus marker lama
-          markers.forEach(marker => map.removeLayer(marker));
-          markers = [];
+          // Hapus marker lama (kecuali marker Jakarta default)
+          markers.forEach(marker => {
+            if (marker.isDefault !== true) {
+              map.removeLayer(marker);
+            }
+          });
+          markers = markers.filter(marker => marker.isDefault === true);
+
+          console.log(`✅ Ditemukan ${result.data.length} lokasi di database`);
 
           // Tambahkan marker baru dari database
-          result.data.forEach(location => {
+          result.data.forEach((location, index) => {
+            console.log(`📍 Menambahkan marker ${index + 1}: ${location.name}`);
+          
             const marker = L.marker([location.latitude, location.longitude])
               .addTo(map)
               .bindPopup(`
                 <div>
-                  <h3>${location.name}</h3>
-                  <p>${location.description}</p>
-                  <small>Lat: ${location.latitude}, Lng: ${location.longitude}</small>
-                  <br>
-                  <button onclick="deleteLocation('${location._id}')">Hapus</button>
+                  <h3>📍 ${location.name}</h3>
+                  <p>📝 ${location.description || 'Tidak ada deskripsi'}</p>
+                  <small>📌 Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}</small>
+                  <br><small>🕒 Dibuat: ${new Date(location.createdAt).toLocaleString('id-ID')}</small>
+                  <br><br>
+                  <button onclick="editLocation('${location._id}')" style="background: #3498db; margin-right: 5px;">✏️ Edit</button>
+                  <button onclick="deleteLocation('${location._id}')" style="background: #e74c3c;">🗑️ Hapus</button>
                 </div>
               `);
             
+            marker.locationData = location;
             markers.push(marker);
           });
+
+          isLoaded = true;
+          showLoading(false);
+          console.log('✅ Semua lokasi berhasil dimuat!');
+
+        } else {
+          console.error('❌ Error dari server:', result.message);
+          showLoading(false);
+          alert('Error memuat data lokasi: ' + result.message);
         }
       } catch (error) {
-        console.error('Error loading locations:', error);
-        alert('Error memuat data lokasi');
+        console.error('❌ Error loading locations:', error);
+        showLoading(false);
+        alert('Error koneksi ke server: ' + error.message);
       }
     }
 
     // Fungsi untuk menyimpan lokasi baru
     async function saveLocation(lat, lng, name, description) {
+      console.log(`💾 Menyimpan lokasi: ${name} di koordinat [${lat}, ${lng}]`);
+      showLoading(true);
+      
       try {
+        const locationData = {
+          name: name,
+          description: description,
+          latitude: lat,
+          longitude: lng,
+          type: 'marker'
+        };
+
+        console.log('📤 Data yang akan dikirim:', locationData);
+
         const response = await fetch('/api/locations', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
+          body: JSON.stringify(locationData)
+        });
+
+                const result = await response.json();
+                console.log('📥 Response simpan:', result);
+
+                if (result.success) {
+                  showLoading(false);
+                  alert('✅ Lokasi berhasil disimpan ke database!');
+                  loadLocations(); // Refresh markers dari database
+                } else {
+                  showLoading(false);
+                  alert('❌ Error menyimpan lokasi: ' + result.message);
+                }
+              } catch (error) {
+                console.error('❌ Error saving location:', error);
+                showLoading(false);
+                alert('❌ Error koneksi ke server: ' + error.message);
+              }
+            }
+
+            // Fungsi untuk edit lokasi
+            async function editLocation(id) {
+              const marker = markers.find(m => m.locationData && m.locationData._id === id);
+              if (!marker) return;
+
+              const location = marker.locationData;
+              const newName = prompt('Edit nama lokasi:', location.name);
+              if (newName === null) return;
+
+              const newDescription = prompt('Edit deskripsi:', location.description || '');
+              if (newDescription === null) return;
+
+              showLoading(true);
+
+              try {
+                const response = await fetch(`/api/locations/${id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
           body: JSON.stringify({
-            name: name,
-            description: description,
-            latitude: lat,
-            longitude: lng,
-            type: 'marker'
+            name: newName,
+            description: newDescription,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            type: location.type
           })
         });
 
         const result = await response.json();
         
         if (result.success) {
-          alert('Lokasi berhasil disimpan!');
+          showLoading(false);
+          alert('✅ Lokasi berhasil diupdate!');
           loadLocations(); // Refresh markers
         } else {
-          alert('Error menyimpan lokasi: ' + result.message);
+          showLoading(false);
+          alert('❌ Error mengupdate lokasi: ' + result.message);
         }
       } catch (error) {
-        console.error('Error saving location:', error);
-        alert('Error menyimpan lokasi');
+        console.error('❌ Error updating location:', error);
+        showLoading(false);
+        alert('❌ Error koneksi ke server');
       }
     }
 
     // Fungsi untuk menghapus lokasi
     async function deleteLocation(id) {
-      if (confirm('Yakin ingin menghapus lokasi ini?')) {
+      if (confirm('🗑️ Yakin ingin menghapus lokasi ini dari database?')) {
+        showLoading(true);
+      
         try {
           const response = await fetch(`/api/locations/${id}`, {
             method: 'DELETE'
@@ -157,14 +256,17 @@
           const result = await response.json();
           
           if (result.success) {
-            alert('Lokasi berhasil dihapus!');
-            loadLocations(); // Refresh markers
+            showLoading(false);
+            alert('✅ Lokasi berhasil dihapus dari database!');
+            loadLocations(); // Refresh markers dari database
           } else {
-            alert('Error menghapus lokasi: ' + result.message);
+            showLoading(false);
+            alert('❌ Error menghapus lokasi: ' + result.message);
           }
         } catch (error) {
-          console.error('Error deleting location:', error);
-          alert('Error menghapus lokasi');
+          console.error('❌ Error deleting location:', error);
+          showLoading(false);
+          alert('❌ Error koneksi ke server');
         }
       }
     }
@@ -174,22 +276,65 @@
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
       
-      const name = prompt('Masukkan nama lokasi:');
-      if (name) {
-        const description = prompt('Masukkan deskripsi (opsional):') || '';
-        saveLocation(lat, lng, name, description);
+      console.log(`🖱️ Klik pada koordinat: [${lat}, ${lng}]`);
+
+      const name = prompt('📍 Masukkan nama lokasi:');
+      if (name && name.trim()) {
+        const description = prompt('📝 Masukkan deskripsi (opsional):') || '';
+        saveLocation(lat, lng, name.trim(), description.trim());
       }
     });
 
+      // Event listener untuk resize peta
+      window.addEventListener('resize', function () {
+        map.invalidateSize();
+      });
+
     // Load data saat halaman dimuat
     document.addEventListener('DOMContentLoaded', function() {
-      loadLocations();
+      console.log('🚀 Aplikasi dimuat, mengambil data dari database...');
+
+      // Tambahkan marker default Jakarta
+      const jakartaMarker = L.marker([-6.2, 106.816])
+        .addTo(map)
+        .bindPopup(`
+          <div>
+            <h3>🏙️ Jakarta</h3>
+            <p>Ibukota Indonesia</p>
+            <small>Klik di mana saja pada peta untuk menambah lokasi baru!</small>
+          </div>
+        `)
+        .openPopup();
+
+      jakartaMarker.isDefault = true;
+      markers.push(jakartaMarker);
+
+      // Load lokasi dari database
+      setTimeout(() => {
+        loadLocations();
+      }, 1000);
     });
 
-    // Marker default Jakarta
-    L.marker([-6.2, 106.816]).addTo(map)
-      .bindPopup('Halo! Ini Jakarta. Klik di peta untuk menambah lokasi baru.')
-      .openPopup();
+      // Tambahkan kontrol refresh manual
+      const refreshControl = L.control({ position: 'topright' });
+      refreshControl.onAdd = function (map) {
+        const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        div.innerHTML = `
+        <button onclick="loadLocations()" style="
+          background: white; 
+          border: none; 
+          padding: 10px; 
+          cursor: pointer;
+          font-size: 16px;
+        " title="Refresh data dari database">
+          🔄
+        </button>
+      `;
+        return div;
+      };
+      refreshControl.addTo(map);
+
+      console.log('✅ Aplikasi Leaflet dengan MongoDB siap digunakan!');
   </script>
 </body>
 </html>

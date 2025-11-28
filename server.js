@@ -200,6 +200,68 @@ app.delete('/api/locations/:id', async (req, res) => {
   }
 });
 
+// Route untuk testing koneksi database
+app.get('/api/test', async (req, res) => {
+  try {
+    const count = await Location.countDocuments();
+    res.json({
+      success: true,
+      message: 'Koneksi database berhasil!',
+      totalLocations: count,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error koneksi database',
+      error: error.message
+    });
+  }
+});
+
+// Route untuk menambah sample data
+app.post('/api/sample', async (req, res) => {
+  try {
+    const sampleLocations = [
+      {
+        name: 'Monas',
+        description: 'Monumen Nasional Jakarta',
+        latitude: -6.1754,
+        longitude: 106.8272,
+        type: 'marker'
+      },
+      {
+        name: 'Istana Negara',
+        description: 'Istana Kepresidenan RI',
+        latitude: -6.1701,
+        longitude: 106.8229,
+        type: 'marker'
+      },
+      {
+        name: 'Masjid Istiqlal',
+        description: 'Masjid terbesar di Asia Tenggara',
+        latitude: -6.1702,
+        longitude: 106.8292,
+        type: 'marker'
+      }
+    ];
+
+    const insertedLocations = await Location.insertMany(sampleLocations);
+    
+    res.json({
+      success: true,
+      message: 'Sample data berhasil ditambahkan',
+      data: insertedLocations
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error menambah sample data',
+      error: error.message
+    });
+  }
+});
+
 // Serve file HTML utama
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
