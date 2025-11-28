@@ -11,7 +11,6 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     crossorigin=""
   />
-
   <style>
     body {
       margin: 0;
@@ -20,6 +19,47 @@
     #map {
       height: 100vh;
       width: 100%;
+    }
+    
+    /* Style untuk popup */
+    .leaflet-popup-content h3 {
+      margin: 0 0 10px 0;
+      color: #2c3e50;
+    }
+    
+    .leaflet-popup-content p {
+      margin: 5px 0;
+      color: #34495e;
+    }
+    
+    .leaflet-popup-content small {
+      color: #7f8c8d;
+    }
+    
+    .leaflet-popup-content button {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    
+    .leaflet-popup-content button:hover {
+      background-color: #c0392b;
+    }
+    
+    /* Loading indicator */
+    .loading {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
     }
   </style>
 </head>
@@ -30,15 +70,125 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     crossorigin="">
   </script>
-
   <script>
+    // Inisialisasi peta
     var map = L.map('map').setView([-6.2, 106.816], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+
+    // Array untuk menyimpan marker
+    var markers = [];
+
+    // Fungsi untuk load data lokasi dari backend
+    async function loadLocations() {
+      try {
+        const response = await fetch('/api/locations');
+        const result = await response.json();
+        
+        if (result.success) {
+          // Hapus marker lama
+          markers.forEach(marker => map.removeLayer(marker));
+          markers = [];
+
+          // Tambahkan marker baru dari database
+          result.data.forEach(location => {
+            const marker = L.marker([location.latitude, location.longitude])
+              .addTo(map)
+              .bindPopup(`
+                <div>
+                  <h3>${location.name}</h3>
+                  <p>${location.description}</p>
+                  <small>Lat: ${location.latitude}, Lng: ${location.longitude}</small>
+                  <br>
+                  <button onclick="deleteLocation('${location._id}')">Hapus</button>
+                </div>
+              `);
+            
+            markers.push(marker);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        alert('Error memuat data lokasi');
+      }
+    }
+
+    // Fungsi untuk menyimpan lokasi baru
+    async function saveLocation(lat, lng, name, description) {
+      try {
+        const response = await fetch('/api/locations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: name,
+            description: description,
+            latitude: lat,
+            longitude: lng,
+            type: 'marker'
+          })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('Lokasi berhasil disimpan!');
+          loadLocations(); // Refresh markers
+        } else {
+          alert('Error menyimpan lokasi: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error saving location:', error);
+        alert('Error menyimpan lokasi');
+      }
+    }
+
+    // Fungsi untuk menghapus lokasi
+    async function deleteLocation(id) {
+      if (confirm('Yakin ingin menghapus lokasi ini?')) {
+        try {
+          const response = await fetch(`/api/locations/${id}`, {
+            method: 'DELETE'
+          });
+
+          const result = await response.json();
+          
+          if (result.success) {
+            alert('Lokasi berhasil dihapus!');
+            loadLocations(); // Refresh markers
+          } else {
+            alert('Error menghapus lokasi: ' + result.message);
+          }
+        } catch (error) {
+          console.error('Error deleting location:', error);
+          alert('Error menghapus lokasi');
+        }
+      }
+    }
+
+    // Event listener untuk klik pada peta
+    map.on('click', function(e) {
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+      
+      const name = prompt('Masukkan nama lokasi:');
+      if (name) {
+        const description = prompt('Masukkan deskripsi (opsional):') || '';
+        saveLocation(lat, lng, name, description);
+      }
+    });
+
+    // Load data saat halaman dimuat
+    document.addEventListener('DOMContentLoaded', function() {
+      loadLocations();
+    });
+
+    // Marker default Jakarta
     L.marker([-6.2, 106.816]).addTo(map)
-      .bindPopup('Halo! Ini Jakarta.')
+      .bindPopup('Halo! Ini Jakarta. Klik di peta untuk menambah lokasi baru.')
       .openPopup();
   </script>
 </body>
